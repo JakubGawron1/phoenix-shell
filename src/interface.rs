@@ -1,55 +1,68 @@
-use std::env;
-use std::io::{stdin, stdout, Write};
-use std::path::{Path, PathBuf};
+use crate::config::global::*;
+use crate::commands::*;
+
+use phoenix_shell::*;
+
+use std::f64::consts::E;
+use std::io::{stdout, stdin, Write};
 use std::process::Command;
 
-pub struct Interface {
-    pub(crate) current_dir: PathBuf,
-    pub(crate) is_admin: bool,
+pub struct Interface;
 
-}
+impl Interface{
+    pub fn init(){
+        let history_file = history::check_history_file();
 
-impl Interface {
-    // First public functions
-
-    // Init shell
-    pub fn init(&mut self) {
-        println!("Hello in Phoenix Shell v{}", env!("CARGO_PKG_VERSION"));
-        Self::display(self);
-        self.is_admin = crate::config::admin::check_admin();
-        Self::wait_for_command(self);
-    }
-    // Display current location
-    pub fn display(&mut self) {
-        let binding = env::current_dir().unwrap();
-        let working_dir = binding.display();
-
-        if self.is_admin == true {
-            print!("Root {}>", working_dir)
+        if history_file == true {
+            history::read_history_file();
         }
         else{
-            print!("User {}>", working_dir)
+            history::create_history_file();
         }
+        Self::wait_for_command();
+    }
+
+    pub fn display(){
+        print!("User: C:/Windows/User>");
         stdout().flush().unwrap();
-        return;
     }
-    // Change current dir
-    fn current_dir(&self) {}
-    // Wait for commands
-    fn wait_for_command(&mut self) {
-        loop {
+    pub fn wait_for_command(){
+        loop{
             let mut input = String::new();
-            stdin().read_line(&mut input).unwrap();
 
-            let command = input.trim();
+            Self::display();
 
-            let mut child = Command::new(command)
-            .spawn()
-            .unwrap();
+            stdin().read_line(&mut input).expect("Failed to read command");
 
-            child.wait().unwrap();
-            Self::display(self);
+            let mut parts = input.trim().split_whitespace();
+            let command = parts.next().unwrap();
+            let args = parts;
 
+            match command {
+                "cd" => cd::move_to_dir(),
+                "exit" => return,
+                command => {
+                    let child = Command::new(command)
+                    .args(args)
+                    .spawn();
+
+                    match child {
+                        Ok(mut child) => {child.wait().unwrap();}
+                        Err(e) => {
+                            eprintln!("{} {}", RED ,e)
+                        }
+
+                        
+                    }
+
+                }
+            }
+
+            
         }
+        
+
     }
+
+
 }
